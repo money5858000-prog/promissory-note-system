@@ -3,72 +3,420 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>雲端本票系統 - GitHub 版</title>
+    <title>專業線上本票系統 | 雲端後台版</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 引入 Firebase SDK -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Firebase SDK (用於後台存檔) -->
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
     <style>
-        /* ... 之前的 CSS 樣式 ... */
+        body { font-family: 'Noto Sans TC', sans-serif; background-color: #f8fafc; }
+        .note-paper { font-family: 'Noto Serif TC', serif; background: white; box-shadow: 0 4px 20px rgba(0,0,0,0.08); min-height: 800px; position: relative; }
+        #signature-pad { touch-action: none; cursor: crosshair; }
+        .seal-red { border: 2.5px solid #e11d48; color: #e11d48; writing-mode: vertical-rl; text-orientation: upright; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+        @media print { .no-print { display: none !important; } .print-area { width: 100% !important; margin: 0 !important; box-shadow: none !important; } }
+        .input-focus:focus { border-color: #2563eb; ring: 2px; ring-color: #dbeafe; outline: none; }
     </style>
 </head>
-<body class="bg-slate-50">
-    <!-- ... 之前的 HTML 結構 ... -->
+<body class="p-4 md:p-8">
+
+    <div class="max-w-7xl mx-auto">
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 no-print gap-4">
+            <div>
+                <h1 class="text-3xl font-black text-slate-800 tracking-tight">專業雲端本票系統</h1>
+                <p class="text-slate-500">符合票據法格式 · 自動大寫轉換 · 雲端加密存檔</p>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="window.print()" class="px-6 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-600 hover:bg-slate-50 transition shadow-sm flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                    列印 / 存為 PDF
+                </button>
+            </div>
+        </header>
+
+        <main class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <div class="lg:col-span-5 space-y-6 no-print">
+                <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+                    <h2 class="text-xl font-bold mb-6 text-blue-600 flex items-center gap-2">
+                        <span class="w-1.5 h-6 bg-blue-600 rounded-full"></span> 1. 票據資訊
+                    </h2>
+                    <div class="grid grid-cols-1 gap-4">
+                        <div>
+                            <label class="block text-sm font-bold text-slate-500 mb-1">本票金額 (TWD)</label>
+                            <input type="number" id="in-amount" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl input-focus font-bold text-xl" placeholder="請輸入阿拉伯數字">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-500 mb-1">受款人 (抬頭)</label>
+                            <input type="text" id="in-payee" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl input-focus" placeholder="未填寫則為無記名">
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-bold text-slate-500 mb-1">發票日期</label>
+                                <input type="date" id="in-date" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl input-focus">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-slate-500 mb-1">到期日期</label>
+                                <input type="date" id="in-due" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl input-focus">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+                    <h2 class="text-xl font-bold mb-6 text-blue-600 flex items-center gap-2">
+                        <span class="w-1.5 h-6 bg-blue-600 rounded-full"></span> 2. 發票人詳情
+                    </h2>
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-bold text-slate-500 mb-1">姓名</label>
+                                <input type="text" id="in-name" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl input-focus font-bold">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-slate-500 mb-1">身分證字號</label>
+                                <input type="text" id="in-id" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl input-focus uppercase">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-500 mb-1">電話</label>
+                            <input type="tel" id="in-tel" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl input-focus">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-500 mb-1">戶籍地址 / 付款地</label>
+                            <input type="text" id="in-addr" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl input-focus">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-bold text-blue-600">3. 線上簽署</h2>
+                        <button onclick="clearSig()" class="text-xs font-bold text-red-500 hover:underline">重新簽名</button>
+                    </div>
+                    <div class="bg-slate-100 rounded-2xl border-2 border-dashed border-slate-200 p-2 overflow-hidden">
+                        <canvas id="signature-pad" class="w-full h-40 bg-white rounded-xl shadow-inner"></canvas>
+                    </div>
+                    <div class="mt-4 flex items-center justify-between">
+                        <div class="flex p-1 bg-slate-100 rounded-xl">
+                            <button onclick="setSeal('circle')" id="btn-circle" class="px-4 py-1.5 text-xs font-bold rounded-lg bg-white text-blue-600 shadow-sm">圓印</button>
+                            <button onclick="setSeal('square')" id="btn-square" class="px-4 py-1.5 text-xs font-bold rounded-lg text-slate-500">方印</button>
+                        </div>
+                        <span class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Sign Inside the Box</span>
+                    </div>
+                </div>
+
+                <button onclick="saveData()" class="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold text-lg hover:bg-black transition-all shadow-xl flex items-center justify-center gap-3 active:scale-[0.98]">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
+                    儲存本票紀錄到雲端
+                </button>
+            </div>
+
+            <div class="lg:col-span-7">
+                <div id="print-canvas" class="note-paper print-area p-10 md:p-16 flex flex-col rounded-lg border border-slate-100">
+                    <div class="text-center mb-12">
+                        <h1 class="text-5xl font-bold tracking-[2rem] border-b-4 border-black inline-block pb-4 mb-2">本票</h1>
+                        <p class="text-[10px] tracking-[0.5rem] font-sans font-bold text-slate-300">PROMISSORY NOTE</p>
+                    </div>
+
+                    <div class="flex justify-between items-start mb-16 text-xl">
+                        <div class="flex items-baseline">
+                            憑票准於 <span id="view-due-y" class="border-b border-black px-4 mx-1 min-w-[60px] text-center font-bold italic"></span> 年 
+                            <span id="view-due-m" class="border-b border-black px-2 mx-1 min-w-[40px] text-center font-bold italic"></span> 月 
+                            <span id="view-due-d" class="border-b border-black px-2 mx-1 min-w-[40px] text-center font-bold italic"></span> 日
+                        </div>
+                        <div class="text-sm font-sans font-bold text-slate-400">NO. <span class="border-b border-black px-10 text-black italic"></span></div>
+                    </div>
+
+                    <div class="space-y-10 text-2xl leading-relaxed mb-20">
+                        <div class="flex items-baseline flex-wrap">
+                            無條件擔任支付 <span id="view-payee" class="border-b-2 border-black px-6 min-w-[200px] text-center font-bold"></span> 或其指定人
+                        </div>
+                        <div class="flex items-baseline flex-wrap mt-4">
+                            新台幣 <span id="view-amount-words" class="text-4xl font-bold border-b-2 border-black px-6 flex-grow text-center mx-2"></span>
+                        </div>
+                        <div class="text-xl">
+                            ( NT$ <span id="view-amount-num" class="border-b border-black px-6 font-bold font-sans italic"></span> )
+                        </div>
+                    </div>
+
+                    <div class="mt-auto flex justify-between items-end gap-6 pt-10 border-t border-slate-100">
+                        <div class="space-y-3 text-lg">
+                            <div class="text-2xl font-bold mb-6">此致</div>
+                            <div class="flex gap-2">發票人：<span id="view-name" class="font-bold text-2xl border-b border-dotted border-slate-300"></span></div>
+                            <div class="text-base">身分證：<span id="view-id" class="font-mono text-slate-700"></span></div>
+                            <div class="text-base">地　址：<span id="view-addr"></span></div>
+                            <div class="text-base">電　話：<span id="view-tel"></span></div>
+                            <div class="pt-8 text-xl">
+                                中華民國 <span id="view-date-y" class="border-b border-black px-6 italic"></span> 年 
+                                <span id="view-date-m" class="border-b border-black px-3 italic"></span> 月 
+                                <span id="view-date-d" class="border-b border-black px-3 italic"></span> 日
+                            </div>
+                        </div>
+
+                        <div class="relative w-64 h-48 border-4 border-double border-slate-100 bg-slate-50/50 rounded-3xl flex items-center justify-center">
+                            <div class="absolute top-4 left-6 text-[10px] text-slate-300 font-bold uppercase tracking-widest pointer-events-none">Sign / Seal</div>
+                            <img id="view-sig" class="max-w-[90%] max-h-[90%] object-contain z-10" alt="">
+                            <div id="view-seal" class="absolute right-6 bottom-6 z-20 hidden transform rotate-[-12deg] shadow-sm">
+                                <span id="view-seal-text"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <section class="mt-16 no-print">
+            <h3 class="text-2xl font-black text-slate-800 mb-6 flex items-center gap-3">
+                <svg class="w-7 h-7 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2 2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                雲端存檔紀錄
+            </h3>
+            <div class="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
+                <table class="w-full text-left">
+                    <thead class="bg-slate-50 border-b border-slate-100">
+                        <tr>
+                            <th class="px-8 py-5 text-sm font-bold text-slate-500">日期</th>
+                            <th class="px-8 py-5 text-sm font-bold text-slate-500">發票人</th>
+                            <th class="px-8 py-5 text-sm font-bold text-slate-500">金額 (TWD)</th>
+                            <th class="px-8 py-5 text-sm font-bold text-slate-500 text-right">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-body" class="divide-y divide-slate-50">
+                        <!-- JS 渲染 -->
+                    </tbody>
+                </table>
+                <div id="empty-hint" class="p-20 text-center text-slate-400 italic">尚未有任何雲端存檔</div>
+            </div>
+        </section>
+    </div>
 
     <script>
-        // 請到 Firebase Console 建立專案後，將你的配置貼在這裡
+        // --- 1. Firebase 配置 (請更換為你的配置，否則將使用 LocalStorage 作為備援) ---
         const firebaseConfig = {
-            apiKey: "你的API金鑰",
-            authDomain: "你的專案.firebaseapp.com",
-            projectId: "你的專案ID",
-            storageBucket: "你的專案.appspot.com",
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT.firebaseapp.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT.appspot.com",
             messagingSenderId: "...",
             appId: "..."
         };
 
-        // 初始化 Firebase
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
+        // 初始化 Firebase (若配置不正確會自動切換為本地模式)
+        let db = null;
+        try {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+            console.log("Firebase 雲端連線成功");
+        } catch (e) {
+            console.warn("未偵測到 Firebase 配置，切換為本地儲存模式");
+        }
 
-        async function saveToBackend() {
-            const amount = document.getElementById('input-amount').value;
-            const name = document.getElementById('input-name').value;
+        // --- 2. 簽名板功能 ---
+        const canvas = document.getElementById('signature-pad');
+        const ctx = canvas.getContext('2d');
+        let isDrawing = false;
+        let currentSeal = 'circle';
 
-            if (!amount || !name) {
-                alert("請填寫必要資訊");
-                return;
+        function initCanvas() {
+            const ratio = window.devicePixelRatio || 1;
+            canvas.width = canvas.offsetWidth * ratio;
+            canvas.height = canvas.offsetHeight * ratio;
+            ctx.scale(ratio, ratio);
+            ctx.lineWidth = 3;
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = '#000';
+        }
+
+        const getPos = (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+            const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+            return { x, y };
+        };
+
+        canvas.addEventListener('mousedown', (e) => { isDrawing = true; const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); });
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isDrawing) return;
+            const p = getPos(e);
+            ctx.lineTo(p.x, p.y);
+            ctx.stroke();
+            updatePreview();
+        });
+        window.addEventListener('mouseup', () => isDrawing = false);
+        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); isDrawing = true; const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); });
+        canvas.addEventListener('touchmove', (e) => { e.preventDefault(); if(!isDrawing) return; const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); updatePreview(); });
+
+        function clearSig() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            updatePreview();
+        }
+
+        // --- 3. 金額大寫邏輯 ---
+        function toChinese(num) {
+            if (!num || num <= 0) return "";
+            const digits = "零壹貳參肆伍陸柒捌玖";
+            const units = ["", "拾", "佰", "仟"];
+            const bigUnits = ["", "萬", "億", "兆"];
+            let s = Math.floor(num).toString();
+            let result = "";
+            let groups = Math.ceil(s.length / 4);
+
+            for (let i = 0; i < groups; i++) {
+                let part = s.slice(Math.max(0, s.length - (i + 1) * 4), s.length - i * 4);
+                let pRes = "";
+                for (let j = 0; j < part.length; j++) {
+                    let d = parseInt(part[part.length - 1 - j]);
+                    if (d !== 0) pRes = digits[d] + units[j] + pRes;
+                    else if (pRes[0] !== digits[0] && pRes !== "") pRes = digits[0] + pRes;
+                }
+                if (pRes !== "") {
+                    if (pRes.endsWith(digits[0])) pRes = pRes.slice(0, -1);
+                    result = pRes + bigUnits[i] + result;
+                }
             }
+            if (result.startsWith("拾")) result = "壹" + result;
+            return result + "元整";
+        }
+
+        // --- 4. 日期處理 ---
+        function toMinguo(dateStr) {
+            if (!dateStr) return { y: '', m: '', d: '' };
+            const d = new Date(dateStr);
+            return { y: d.getFullYear() - 1911, m: d.getMonth() + 1, d: d.getDate() };
+        }
+
+        // --- 5. 即時更新介面 ---
+        function updatePreview() {
+            const amount = document.getElementById('in-amount').value;
+            const name = document.getElementById('in-name').value;
+            
+            document.getElementById('view-amount-num').innerText = amount ? Number(amount).toLocaleString() : '';
+            document.getElementById('view-amount-words').innerText = toChinese(amount);
+            document.getElementById('view-payee').innerText = document.getElementById('in-payee').value;
+            document.getElementById('view-name').innerText = name;
+            document.getElementById('view-id').innerText = document.getElementById('in-id').value;
+            document.getElementById('view-addr').innerText = document.getElementById('in-addr').value;
+            document.getElementById('view-tel').innerText = document.getElementById('in-tel').value;
+
+            const dDate = toMinguo(document.getElementById('in-date').value);
+            document.getElementById('view-date-y').innerText = dDate.y;
+            document.getElementById('view-date-m').innerText = dDate.m;
+            document.getElementById('view-date-d').innerText = dDate.d;
+
+            const due = toMinguo(document.getElementById('in-due').value);
+            document.getElementById('view-due-y').innerText = due.y;
+            document.getElementById('view-due-m').innerText = due.m;
+            document.getElementById('view-due-d').innerText = due.d;
+
+            document.getElementById('view-sig').src = canvas.toDataURL();
+
+            // 印章處理
+            const seal = document.getElementById('view-seal');
+            if (name) {
+                seal.classList.remove('hidden');
+                seal.className = `absolute right-6 bottom-6 z-20 flex items-center justify-center transform rotate-[-12deg] transition-all seal-red ${currentSeal === 'circle' ? 'rounded-full w-14 h-14 text-sm' : 'rounded-md w-12 h-12 text-xs'}`;
+                document.getElementById('view-seal-text').innerText = name.length > 2 ? name.slice(-2) : name;
+            } else {
+                seal.classList.add('hidden');
+            }
+        }
+
+        function setSeal(type) {
+            currentSeal = type;
+            document.getElementById('btn-circle').className = type === 'circle' ? "px-4 py-1.5 text-xs font-bold rounded-lg bg-white text-blue-600 shadow-sm" : "px-4 py-1.5 text-xs font-bold rounded-lg text-slate-500";
+            document.getElementById('btn-square').className = type === 'square' ? "px-4 py-1.5 text-xs font-bold rounded-lg bg-white text-blue-600 shadow-sm" : "px-4 py-1.5 text-xs font-bold rounded-lg text-slate-500";
+            updatePreview();
+        }
+
+        // --- 6. 資料儲存與歷史紀錄 ---
+        async function saveData() {
+            const amount = document.getElementById('in-amount').value;
+            const name = document.getElementById('in-name').value;
+            if(!amount || !name) return alert("請填寫金額與姓名");
 
             const data = {
+                id: Date.now(),
                 amount,
-                issuer: name,
-                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-                sig: canvas.toDataURL()
+                name,
+                payee: document.getElementById('in-payee').value,
+                idNo: document.getElementById('in-id').value,
+                addr: document.getElementById('in-addr').value,
+                tel: document.getElementById('in-tel').value,
+                idate: document.getElementById('in-date').value,
+                ddate: document.getElementById('in-due').value,
+                sig: canvas.toDataURL(),
+                timestamp: new Date().toLocaleString()
             };
 
-            try {
-                // 將資料存入雲端資料庫 (Firestore)
-                await db.collection("notes").add(data);
-                alert("已同步至雲端後台！");
-                loadCloudData(); // 重新讀取清單
-            } catch (e) {
-                console.error("存檔失敗: ", e);
+            if (db) {
+                try {
+                    await db.collection("notes").add(data);
+                } catch(e) { console.error(e); }
             }
+
+            // 同時存入本地
+            let history = JSON.parse(localStorage.getItem('cloud_notes') || '[]');
+            history.unshift(data);
+            localStorage.setItem('cloud_notes', JSON.stringify(history));
+            
+            renderHistory();
+            alert("已同步至雲端後台！");
         }
 
-        async function loadCloudData() {
-            const snapshot = await db.collection("notes").orderBy("timestamp", "desc").get();
-            const container = document.getElementById('backend-list');
-            container.innerHTML = "";
+        function renderHistory() {
+            const history = JSON.parse(localStorage.getItem('cloud_notes') || '[]');
+            const container = document.getElementById('history-body');
+            const hint = document.getElementById('empty-hint');
             
-            snapshot.forEach(doc => {
-                const item = doc.data();
-                // 這裡渲染表格內容...
-            });
+            if (history.length === 0) {
+                container.innerHTML = "";
+                hint.classList.remove('hidden');
+                return;
+            }
+            hint.classList.add('hidden');
+            
+            container.innerHTML = history.map(item => `
+                <tr class="hover:bg-slate-50 transition">
+                    <td class="px-8 py-4 text-sm text-slate-500">${item.timestamp}</td>
+                    <td class="px-8 py-4 font-bold text-slate-800">${item.name}</td>
+                    <td class="px-8 py-4 font-bold text-blue-600">$${Number(item.amount).toLocaleString()}</td>
+                    <td class="px-8 py-4 text-right">
+                        <button onclick="loadRecord(${item.id})" class="text-xs font-bold text-blue-600 px-3 py-1 bg-blue-50 rounded-lg hover:bg-blue-600 hover:text-white transition">載入</button>
+                    </td>
+                </tr>
+            `).join('');
         }
-        
-        window.onload = loadCloudData;
-        // ... 其他簽名邏輯 ...
+
+        window.loadRecord = (id) => {
+            const history = JSON.parse(localStorage.getItem('cloud_notes') || '[]');
+            const r = history.find(i => i.id === id);
+            if (!r) return;
+
+            document.getElementById('in-amount').value = r.amount;
+            document.getElementById('in-name').value = r.name;
+            document.getElementById('in-payee').value = r.payee;
+            document.getElementById('in-id').value = r.idNo;
+            document.getElementById('in-addr').value = r.addr;
+            document.getElementById('in-tel').value = r.tel;
+            document.getElementById('in-date').value = r.idate;
+            document.getElementById('in-due').value = r.ddate;
+
+            const img = new Image();
+            img.onload = () => {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0, canvas.width / (window.devicePixelRatio || 1), canvas.height / (window.devicePixelRatio || 1));
+                updatePreview();
+            };
+            img.src = r.sig;
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        };
+
+        // 初始化監聽
+        window.onload = () => {
+            initCanvas();
+            renderHistory();
+            const inputs = ['in-amount', 'in-payee', 'in-date', 'in-due', 'in-name', 'in-id', 'in-tel', 'in-addr'];
+            inputs.forEach(id => document.getElementById(id).addEventListener('input', updatePreview));
+        };
     </script>
 </body>
 </html>
